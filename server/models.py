@@ -1,10 +1,17 @@
+cat > server/models.py <<'PY'
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.ext.associationproxy import association_proxy
-from flask_marshmallow import Marshmallow
-from marshmallow import fields
+from marshmallow import Schema, fields
 
 db = SQLAlchemy()
-ma = Marshmallow()
+
+
+class DummyMarshmallow:
+    def init_app(self, app):
+        pass
+
+
+ma = DummyMarshmallow()
 
 
 class Customer(db.Model):
@@ -39,7 +46,6 @@ class Review(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     comment = db.Column(db.String)
-
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'))
     item_id = db.Column(db.Integer, db.ForeignKey('items.id'))
 
@@ -50,31 +56,42 @@ class Review(db.Model):
         return f'<Review {self.id}, {self.comment}>'
 
 
-class CustomerSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Customer
-        load_instance = True
-        include_fk = True
-
-    reviews = fields.Nested('ReviewSchema', many=True, exclude=('customer',))
-    items = fields.List(fields.Nested('ItemSchema', exclude=('reviews', 'customers')))
-
-
-class ItemSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Item
-        load_instance = True
-        include_fk = True
-
-    reviews = fields.Nested('ReviewSchema', many=True, exclude=('item',))
-    customers = fields.List(fields.Nested('CustomerSchema', exclude=('reviews', 'items')))
+class CustomerSchema(Schema):
+    id = fields.Int()
+    name = fields.Str()
+    reviews = fields.Nested(
+        lambda: ReviewSchema(exclude=('customer',)),
+        many=True
+    )
+    items = fields.List(
+        fields.Nested(
+            lambda: ItemSchema(exclude=('reviews', 'customers'))
+        )
+    )
 
 
-class ReviewSchema(ma.SQLAlchemyAutoSchema):
-    class Meta:
-        model = Review
-        load_instance = True
-        include_fk = True
+class ItemSchema(Schema):
+    id = fields.Int()
+    name = fields.Str()
+    price = fields.Float()
+    reviews = fields.Nested(
+        lambda: ReviewSchema(exclude=('item',)),
+        many=True
+    )
+    customers = fields.List(
+        fields.Nested(
+            lambda: CustomerSchema(exclude=('reviews', 'items'))
+        )
+    )
 
-    customer = fields.Nested('CustomerSchema', exclude=('reviews', 'items'))
-    item = fields.Nested('ItemSchema', exclude=('reviews', 'customers')) 
+
+class ReviewSchema(Schema):
+    id = fields.Int()
+    comment = fields.Str()
+    customer = fields.Nested(
+        lambda: CustomerSchema(exclude=('reviews', 'items'))
+    )
+    item = fields.Nested(
+        lambda: ItemSchema(exclude=('reviews', 'customers'))
+    )
+PY
