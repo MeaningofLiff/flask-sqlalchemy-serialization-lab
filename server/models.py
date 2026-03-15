@@ -1,4 +1,3 @@
-cat > server/models.py <<'PY'
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.ext.associationproxy import association_proxy
 from marshmallow import Schema, fields
@@ -93,5 +92,4 @@ class ReviewSchema(Schema):
     )
     item = fields.Nested(
         lambda: ItemSchema(exclude=('reviews', 'customers'))
-    )
-PY
+    ) 
